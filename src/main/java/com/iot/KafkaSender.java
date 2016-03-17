@@ -14,8 +14,10 @@ public class KafkaSender implements MessageQueueSender {
 	public KafkaSender() {
 		Properties properties = new Properties();
 		properties.put("bootstrap.servers", "localhost:9092");
-		properties.put("acks", 1);
-		producer = new KafkaProducer<>(properties, new StringSerializer(), new StringSerializer());
+		properties.put("acks", "1");
+		properties.put("key.serializer", StringSerializer.class.getName());
+		properties.put("value.serializer", StringSerializer.class.getName());
+		producer = new KafkaProducer<>(properties);
 	}
 
 	public CompletableFuture<Void> send(String topic, String key, String data) {
