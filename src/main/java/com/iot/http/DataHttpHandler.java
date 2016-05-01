@@ -8,13 +8,13 @@ import com.iot.token.TokenParseException;
 import com.iot.token.TokenVerificationException;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
+import io.undertow.util.HeaderValues;
 import io.undertow.util.Headers;
 import io.undertow.util.Methods;
 import io.undertow.util.StatusCodes;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.iot.DataSchema.DATA;
 import static com.iot.DataSchema.DEVICE_ID;
@@ -51,7 +51,12 @@ public class DataHttpHandler implements HttpHandler {
 	private void processMessage(HttpServerExchange exchange, byte[] message) {
 		exchange.dispatch(); // do not end exchange when this method returns, because saving to kafka is async
 
-		String authorizationHeader = exchange.getRequestHeaders().get("Authorization").get(0);
+		String authorizationHeader = getAuthorizationHeader(exchange);
+		if (authorizationHeader == null) {
+			sendError(exchange, "No 'Authorization' header", UNAUTHORIZED);
+			return;
+		}
+
 		Map<String, Object> tokenPayload;
 		try {
 			tokenPayload = tokenService.verifyToken(authorizationHeader);
@@ -71,29 +76,34 @@ public class DataHttpHandler implements HttpHandler {
 			return;
 		}
 
-		Optional<String> deviceId = getDeviceId(tokenPayload);
-		if (!deviceId.isPresent()) {
+		JsonNode data = json.get(DATA);
+		String deviceId = getDeviceId(tokenPayload);
+		if (deviceId == null || data == null) {
 			sendRequestError(exchange);
 			return;
 		}
 
-		JsonNode data = json.get(DATA);
-		sender.send(DATA_TOPIC, deviceId.get(), data.toString())
+		sender.send(DATA_TOPIC, deviceId, data.toString())
 				.thenRun(() -> exchange.getResponseSender().close())
 				.exceptionally((throwable -> sendServerError(exchange)));
 	}
 
-	private Optional<String> getDeviceId(Map<String, Object> tokenPayload) {
+	private static String getAuthorizationHeader(HttpServerExchange exchange) {
+		HeaderValues authorizationHeaderValues = exchange.getRequestHeaders().get(Headers.AUTHORIZATION);
+		return authorizationHeaderValues == null ? null : authorizationHeaderValues.getFirst();
+	}
+
+	private static String getDeviceId(Map<String, Object> tokenPayload) {
 		if (tokenPayload == null)
-			return Optional.empty();
+			return null;
 
 		Object o = tokenPayload.get(DEVICE_ID);
 
 		if (o instanceof String) {
 			String deviceId = (String) o;
-			return deviceId.isEmpty() ? Optional.empty() : Optional.of(deviceId);
+			return deviceId.isEmpty() ? null : deviceId;
 		}
 
-		return Optional.empty();
+		return null;
 	}
 }

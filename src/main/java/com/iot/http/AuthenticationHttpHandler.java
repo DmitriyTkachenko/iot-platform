@@ -43,15 +43,15 @@ public class AuthenticationHttpHandler implements HttpHandler {
 		}
 
 		Map<String, Deque<String>> queryParameters = exchange.getQueryParameters();
-		Optional<String> login = extractQueryParameter(LOGIN, queryParameters);
-		Optional<String> password = extractQueryParameter(PASSWORD, queryParameters);
+		String login = extractQueryParameter(LOGIN, queryParameters);
+		String password = extractQueryParameter(PASSWORD, queryParameters);
 
-		if (!login.isPresent() || !password.isPresent()) {
+		if (login == null || password == null) {
 			sendError(exchange, "Login credentials are not present", UNAUTHORIZED);
 			return;
 		}
 
-		boolean authenticated = authenticationService.authenticate(login.get(), password.get());
+		boolean authenticated = authenticationService.authenticate(login, password);
 
 		if (!authenticated) {
 			sendError(exchange, "Authentication failed", UNAUTHORIZED);
@@ -59,19 +59,19 @@ public class AuthenticationHttpHandler implements HttpHandler {
 		}
 
 		Map<String, Object> tokenClaims = new HashMap<>();
-		tokenClaims.put(DEVICE_ID, login.get());
+		tokenClaims.put(DEVICE_ID, login);
 		String token = tokenService.createToken(tokenClaims);
 		String json = objectMapper.createObjectNode().put("token", token).toString();
 
 		exchange.getResponseSender().send(json);
 	}
 
-	private static Optional<String> extractQueryParameter(String parameter, Map<String, Deque<String>> queryParameters) {
+	private static String extractQueryParameter(String parameter, Map<String, Deque<String>> queryParameters) {
 		Deque<String> values = queryParameters.get(parameter);
 
 		if (values == null || values.isEmpty())
-			return Optional.empty();
+			return null;
 
-		return Optional.of(values.getFirst());
+		return values.getFirst();
 	}
 }
