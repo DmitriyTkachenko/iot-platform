@@ -1,4 +1,4 @@
-package com.iot;
+package com.iot.mq;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;

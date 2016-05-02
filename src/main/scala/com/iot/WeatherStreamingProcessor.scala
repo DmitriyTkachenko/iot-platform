@@ -2,16 +2,16 @@ package com.iot
 
 import java.util.Date
 
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector.streaming._
-import com.iot.KafkaTopics.DATA_TOPIC
 import com.iot.WeatherDomain.{AggregateWeatherDataRecord, WeatherDataRecord, WeatherDatabaseRecord}
+import com.iot.mq.KafkaTopics.DATA_TOPIC
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.{SparkConf, SparkContext}
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 object WeatherStreamingProcessor extends App {
   implicit val formats = DefaultFormats

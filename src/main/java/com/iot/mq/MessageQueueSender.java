@@ -1,4 +1,4 @@
-package com.iot;
+package com.iot.mq;
 
 import java.util.concurrent.CompletionStage;
 

@@ -2,7 +2,7 @@ package com.iot.http;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iot.MessageQueueSender;
+import com.iot.mq.MessageQueueSender;
 import com.iot.token.JwtTokenService;
 import com.iot.token.TokenParseException;
 import com.iot.token.TokenVerificationException;
@@ -16,13 +16,14 @@ import io.undertow.util.StatusCodes;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.iot.DataSchema.DATA;
-import static com.iot.DataSchema.DEVICE_ID;
-import static com.iot.KafkaTopics.DATA_TOPIC;
+import static com.iot.http.AuthenticationHttpHandler.DEVICE_ID;
 import static com.iot.http.HttpUtils.*;
+import static com.iot.mq.KafkaTopics.DATA_TOPIC;
 import static io.undertow.util.StatusCodes.UNAUTHORIZED;
 
 public class DataHttpHandler implements HttpHandler {
+	public static final String DATA = "data";
+
 	private final MessageQueueSender sender;
 	private final JwtTokenService tokenService;
 	private final ObjectMapper objectMapper;
@@ -49,8 +50,6 @@ public class DataHttpHandler implements HttpHandler {
 	}
 
 	private void processMessage(HttpServerExchange exchange, byte[] message) {
-		exchange.dispatch(); // do not end exchange when this method returns, because saving to kafka is async
-
 		String authorizationHeader = getAuthorizationHeader(exchange);
 		if (authorizationHeader == null) {
 			sendError(exchange, "No 'Authorization' header", UNAUTHORIZED);
@@ -83,6 +82,7 @@ public class DataHttpHandler implements HttpHandler {
 			return;
 		}
 
+		exchange.dispatch(); // do not end exchange when this method returns, because saving to kafka is async
 		sender.send(DATA_TOPIC, deviceId, data.toString())
 				.thenRun(() -> exchange.getResponseSender().close())
 				.exceptionally((throwable -> sendServerError(exchange)));

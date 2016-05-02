@@ -11,8 +11,8 @@ public class JwtTokenService {
 
 	private static final Pattern AUTH_HEADER_PATTERN = Pattern.compile("^Bearer$", Pattern.CASE_INSENSITIVE);
 
-	private JWTVerifier verifier = new JWTVerifier(SECRET);
-	private JWTSigner signer = new JWTSigner(SECRET);
+	private final JWTVerifier verifier = new JWTVerifier(SECRET);
+	private final JWTSigner signer = new JWTSigner(SECRET);
 
 	public String createToken(Map<String, Object> claims) {
 		return signer.sign(claims);

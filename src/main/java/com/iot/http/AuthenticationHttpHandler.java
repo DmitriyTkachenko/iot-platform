@@ -1,7 +1,7 @@
 package com.iot.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iot.AuthenticationService;
+import com.iot.auth.AuthenticationService;
 import com.iot.token.JwtTokenService;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
@@ -12,15 +12,17 @@ import io.undertow.util.StatusCodes;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 
-import static com.iot.DataSchema.DEVICE_ID;
-import static com.iot.DataSchema.LOGIN;
-import static com.iot.DataSchema.PASSWORD;
 import static com.iot.http.HttpUtils.sendError;
+import static com.iot.http.HttpUtils.sendServerError;
 import static io.undertow.util.StatusCodes.UNAUTHORIZED;
 
 public class AuthenticationHttpHandler implements HttpHandler {
+	public static final String DEVICE_ID = "deviceId";
+	public static final String LOGIN = "login";
+	public static final String PASSWORD = "password";
+
 	private final AuthenticationService authenticationService;
 	private final JwtTokenService tokenService;
 	private final ObjectMapper objectMapper;
@@ -51,18 +53,25 @@ public class AuthenticationHttpHandler implements HttpHandler {
 			return;
 		}
 
-		boolean authenticated = authenticationService.authenticate(login, password);
+		exchange.dispatch();
+		CompletionStage<Boolean> authenticationFuture = authenticationService.authenticate(login, password);
+		authenticationFuture
+				.thenAccept((authenticated) -> {
+					if (authenticated) {
+						createAndSendToken(login, exchange);
+						return;
+					}
 
-		if (!authenticated) {
-			sendError(exchange, "Authentication failed", UNAUTHORIZED);
-			return;
-		}
+					sendError(exchange, "Authentication credentials are invalid", UNAUTHORIZED);
+				})
+				.exceptionally(throwable -> sendServerError(exchange));
+	}
 
+	private void createAndSendToken(String login, HttpServerExchange exchange) {
 		Map<String, Object> tokenClaims = new HashMap<>();
 		tokenClaims.put(DEVICE_ID, login);
 		String token = tokenService.createToken(tokenClaims);
 		String json = objectMapper.createObjectNode().put("token", token).toString();
-
 		exchange.getResponseSender().send(json);
 	}
 
