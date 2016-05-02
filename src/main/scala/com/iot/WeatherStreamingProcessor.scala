@@ -26,12 +26,14 @@ object WeatherStreamingProcessor extends App {
   val sc = new SparkContext(conf)
   val ssc = new StreamingContext(sc, batchDuration)
 
+  type Key = String
   val (keyspace, table) = ("iot", "weather")
   val (zkQuorum, groupId) = ("localhost:2181", "weather-consumer")
 
-  // database
-  val (deviceId, timestamp, temperatureStats, pressureStats) =
-    ("device_id", "timestamp", "temperature_stats", "pressure_stats") // columns
+  // database columns
+  val (deviceId, timestamp, temperatureStats, pressureStats) = ("device_id", "timestamp", "temperature_stats", "pressure_stats")
+  val (count, avg, stdDev) = ("count", "avg", "std_dev")
+
   val stats = "stats" // type
 
   // json fields
@@ -41,8 +43,9 @@ object WeatherStreamingProcessor extends App {
     session.execute(s"DROP KEYSPACE IF EXISTS $keyspace")
     session.execute(s"CREATE KEYSPACE IF NOT EXISTS $keyspace " +
       s"WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1 }")
-    session.execute(s"CREATE TYPE $keyspace.$stats (count BIGINT, avg DOUBLE, std_dev DOUBLE)")
-    session.execute(s"""CREATE TABLE IF NOT EXISTS $keyspace.$table
+    session.execute(s"CREATE TYPE $keyspace.$stats ($count BIGINT, $avg DOUBLE, $stdDev DOUBLE)")
+    session.execute(
+      s"""CREATE TABLE IF NOT EXISTS $keyspace.$table
       ($deviceId TEXT, $timestamp TIMESTAMP,
       $temperatureStats FROZEN<stats>,
       $pressureStats FROZEN<stats>,
@@ -55,20 +58,21 @@ object WeatherStreamingProcessor extends App {
   stream
     .map(parseKafkaRecord)
     .map(toAggregateRecord)
-    .reduceByWindow((r1, r2) => r1.merge(r2), batchDuration, batchDuration)
+    .reduceByKeyAndWindow((r1: AggregateWeatherDataRecord, r2: AggregateWeatherDataRecord) => r1.merge(r2),
+      batchDuration, batchDuration)
     .map(toDatabaseRecord)
     .saveToCassandra(keyspace, table)
 
   ssc.start()
 
-  def parseKafkaRecord(t: (String, String)): WeatherDataRecord = {
+  def parseKafkaRecord(t: (String, String)): (Key, WeatherDataRecord) = {
     val json = parse(t._2)
-    WeatherDataRecord(t._1, (json \ temperature).extract[Double], (json \ pressure).extract[Double])
+    (t._1, WeatherDataRecord((json \ temperature).extract[Double], (json \ pressure).extract[Double]))
   }
 
-  def toAggregateRecord(r: WeatherDataRecord) =
-    AggregateWeatherDataRecord(r.deviceId, DoubleStatsCounter(r.temperature), DoubleStatsCounter(r.pressure))
+  def toAggregateRecord(t: (Key, WeatherDataRecord)): (Key, AggregateWeatherDataRecord) =
+    (t._1, AggregateWeatherDataRecord(DoubleStatsCounter(t._2.temperature), DoubleStatsCounter(t._2.pressure)))
 
-  def toDatabaseRecord(r: AggregateWeatherDataRecord) =
-    WeatherDatabaseRecord(r.deviceId, new Date(), r.temperatureStats.stats, r.pressureStats.stats)
+  def toDatabaseRecord(t: (Key, AggregateWeatherDataRecord)) =
+    WeatherDatabaseRecord(t._1, new Date(), t._2.temperatureStats.stats, t._2.pressureStats.stats)
 }
