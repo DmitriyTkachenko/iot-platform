@@ -1,11 +1,12 @@
-package com.iot
+package com.iot.weather.stream
 
 import java.util.Date
 
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector.streaming._
-import com.iot.WeatherDomain.{AggregateWeatherDataRecord, WeatherDataRecord, WeatherDatabaseRecord}
 import com.iot.mq.KafkaTopics.DATA_TOPIC
+import com.iot.util.DoubleStatsCounter
+import com.iot.weather.WeatherDomain._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -27,12 +28,7 @@ object WeatherStreamingProcessor extends App {
   val ssc = new StreamingContext(sc, batchDuration)
 
   type Key = String
-  val (keyspace, table) = ("iot", "weather")
   val (zkQuorum, groupId) = ("localhost:2181", "weather-consumer")
-
-  // database columns
-  val (deviceId, timestamp, temperatureStats, pressureStats) = ("device_id", "timestamp", "temperature_stats", "pressure_stats")
-  val (count, avg, stdDev) = ("count", "avg", "std_dev")
 
   val stats = "stats" // type
 

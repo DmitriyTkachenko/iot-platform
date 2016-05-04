@@ -1,4 +1,4 @@
-package com.iot
+package com.iot.util
 
 import scala.math.sqrt
 

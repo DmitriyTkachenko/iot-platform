@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 
+import static com.iot.http.HttpUtils.extractQueryParameter;
 import static com.iot.http.HttpUtils.sendError;
 import static com.iot.http.HttpUtils.sendServerError;
 import static io.undertow.util.StatusCodes.UNAUTHORIZED;
@@ -36,14 +37,6 @@ public class AuthenticationHttpHandler implements HttpHandler {
 
 	@Override
 	public void handleRequest(HttpServerExchange exchange) throws Exception {
-		if (!exchange.getRequestMethod().equals(Methods.GET)) {
-			exchange.getResponseHeaders().put(Headers.ALLOW, "GET");
-			exchange.setStatusCode(StatusCodes.METHOD_NOT_ALLOWED);
-			exchange.setPersistent(false);
-			exchange.getResponseSender().close();
-			return;
-		}
-
 		Map<String, Deque<String>> queryParameters = exchange.getQueryParameters();
 		String login = extractQueryParameter(LOGIN, queryParameters);
 		String password = extractQueryParameter(PASSWORD, queryParameters);
@@ -73,14 +66,5 @@ public class AuthenticationHttpHandler implements HttpHandler {
 		String token = tokenService.createToken(tokenClaims);
 		String json = objectMapper.createObjectNode().put("token", token).toString();
 		exchange.getResponseSender().send(json);
-	}
-
-	private static String extractQueryParameter(String parameter, Map<String, Deque<String>> queryParameters) {
-		Deque<String> values = queryParameters.get(parameter);
-
-		if (values == null || values.isEmpty())
-			return null;
-
-		return values.getFirst();
 	}
 }

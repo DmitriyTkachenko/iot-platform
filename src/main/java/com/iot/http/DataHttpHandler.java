@@ -36,17 +36,7 @@ public class DataHttpHandler implements HttpHandler {
 
 	@Override
 	public void handleRequest(HttpServerExchange exchange) throws Exception {
-		if (!exchange.getRequestMethod().equals(Methods.POST)) {
-			exchange.getResponseHeaders().put(Headers.ALLOW, "POST");
-			exchange.setStatusCode(StatusCodes.METHOD_NOT_ALLOWED);
-			exchange.setPersistent(false);
-			exchange.getResponseSender().close();
-			return;
-		}
-
-		System.out.println(exchange.getRequestHeaders().get(Headers.AUTHORIZATION).getFirst());
-		exchange.getRequestReceiver().receiveFullBytes(this::processMessage,
-				(exch, e) -> sendServerError(exchange));
+		exchange.getRequestReceiver().receiveFullBytes(this::processMessage, (exch, e) -> sendServerError(exchange));
 	}
 
 	private void processMessage(HttpServerExchange exchange, byte[] message) {

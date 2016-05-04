@@ -2,6 +2,9 @@ package com.iot.http;
 
 import io.undertow.server.HttpServerExchange;
 
+import java.util.Deque;
+import java.util.Map;
+
 import static io.undertow.util.StatusCodes.BAD_REQUEST;
 import static io.undertow.util.StatusCodes.INTERNAL_SERVER_ERROR;
 
@@ -22,5 +25,14 @@ public class HttpUtils {
 		exchange.setStatusCode(code);
 		exchange.getResponseSender().send(body);
 		return null;
+	}
+
+	public static String extractQueryParameter(String parameter, Map<String, Deque<String>> queryParameters) {
+		Deque<String> values = queryParameters.get(parameter);
+
+		if (values == null || values.isEmpty())
+			return null;
+
+		return values.getFirst();
 	}
 }
