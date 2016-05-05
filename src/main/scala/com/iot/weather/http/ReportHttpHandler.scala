@@ -4,6 +4,7 @@ import com.datastax.spark.connector._
 import com.iot.http.HttpUtils.{extractQueryParameter, sendServerError}
 import com.iot.weather.WeatherDomain._
 import io.undertow.server.{HttpHandler, HttpServerExchange}
+import io.undertow.util.HttpString
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
@@ -22,12 +23,15 @@ class ReportHttpHandler extends HttpHandler {
 
   implicit val formats = Serialization.formats(NoTypeHints)
 
+  val corsHeader = new HttpString("Access-Control-Allow-Origin")
+
   override def handleRequest(exchange: HttpServerExchange): Unit = {
     var weatherTable = sc.cassandraTable[WeatherDatabaseRecord](keyspace, table)
     Option(extractQueryParameter("id", exchange.getQueryParameters))
       .foreach(id => weatherTable = weatherTable.where(s"$deviceId = ?", id))
     exchange.dispatch
     val rowsFuture = weatherTable.collectAsync()
+    exchange.getResponseHeaders.add(corsHeader, "*")
     rowsFuture.onComplete {
       case Success(rows) => exchange.getResponseSender.send(write(rows))
       case Failure(e) => sendServerError(exchange)

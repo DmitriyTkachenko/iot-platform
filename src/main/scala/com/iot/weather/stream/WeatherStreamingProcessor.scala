@@ -17,7 +17,7 @@ import org.json4s.jackson.JsonMethods._
 object WeatherStreamingProcessor extends App {
   implicit val formats = DefaultFormats
 
-  val batchDuration = Seconds(60)
+  val batchDuration = Seconds(1)
 
   val conf = new SparkConf()
     .setMaster("local[*]")
@@ -63,7 +63,9 @@ object WeatherStreamingProcessor extends App {
 
   def parseKafkaRecord(t: (String, String)): (Key, WeatherDataRecord) = {
     val json = parse(t._2)
-    (t._1, WeatherDataRecord((json \ temperature).extract[Double], (json \ pressure).extract[Double]))
+    (t._1, WeatherDataRecord(
+      (json \ temperature).extractOrElse(0.0),
+      (json \ pressure).extractOrElse(0.0)))
   }
 
   def toAggregateRecord(t: (Key, WeatherDataRecord)): (Key, AggregateWeatherDataRecord) =
