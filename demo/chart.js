@@ -1,5 +1,5 @@
 $(document).ready(function () {
-  var deviceId = "test_client";
+  var deviceId = "RaspberryPi";
 
   Highcharts.setOptions({
     global: {
@@ -32,7 +32,7 @@ $(document).ready(function () {
     },
 
     title: {
-      text: 'Data'
+      text: "Temperature data from '" + deviceId + "'"
     },
 
     exporting: {
